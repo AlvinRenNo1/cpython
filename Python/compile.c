@@ -1974,12 +1974,12 @@ compiler_unless(struct compiler *c, stmt_ty s)
      * constant = 1: "if 1", "if 2", ...
      * constant = -1: rest */
     if (constant == 0) {
-        if (s->v.Unless.orelse)
-            VISIT_SEQ(c, stmt, s->v.Unless.orelse);
+        if (s->v.Unless.then)
+            VISIT_SEQ(c, stmt, s->v.Unless.then);
     } else if (constant == 1) {
         VISIT_SEQ(c, stmt, s->v.Unless.body);
     } else {
-        if (s->v.Unless.orelse) {
+        if (s->v.Unless.then) {
             next = compiler_new_block(c);
             if (next == NULL)
                 return 0;
@@ -1990,9 +1990,9 @@ compiler_unless(struct compiler *c, stmt_ty s)
         ADDOP_JABS(c, POP_JUMP_IF_TRUE, next);
         VISIT_SEQ(c, stmt, s->v.Unless.body);
         ADDOP_JREL(c, JUMP_FORWARD, end);
-        if (s->v.Unless.orelse) {
+        if (s->v.Unless.then) {
             compiler_use_next_block(c, next);
-            VISIT_SEQ(c, stmt, s->v.Unless.orelse);
+            VISIT_SEQ(c, stmt, s->v.Unless.then);
         }
     }
     compiler_use_next_block(c, end);

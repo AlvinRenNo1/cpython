@@ -111,10 +111,11 @@ static char *If_fields[]={
     "orelse",
 };
 static PyTypeObject *Unless_type;
+_Py_IDENTIFIER(then);
 static char *Unless_fields[]={
     "test",
     "body",
-    "orelse",
+    "then",
 };
 static PyTypeObject *With_type;
 _Py_IDENTIFIER(items);
@@ -1420,7 +1421,7 @@ If(expr_ty test, asdl_seq * body, asdl_seq * orelse, int lineno, int
 }
 
 stmt_ty
-Unless(expr_ty test, asdl_seq * body, asdl_seq * orelse, int lineno, int
+Unless(expr_ty test, asdl_seq * body, asdl_seq * then, int lineno, int
        col_offset, PyArena *arena)
 {
     stmt_ty p;
@@ -1435,7 +1436,7 @@ Unless(expr_ty test, asdl_seq * body, asdl_seq * orelse, int lineno, int
     p->kind = Unless_kind;
     p->v.Unless.test = test;
     p->v.Unless.body = body;
-    p->v.Unless.orelse = orelse;
+    p->v.Unless.then = then;
     p->lineno = lineno;
     p->col_offset = col_offset;
     return p;
@@ -2663,9 +2664,9 @@ ast2obj_stmt(void* _o)
         if (_PyObject_SetAttrId(result, &PyId_body, value) == -1)
             goto failed;
         Py_DECREF(value);
-        value = ast2obj_list(o->v.Unless.orelse, ast2obj_stmt);
+        value = ast2obj_list(o->v.Unless.then, ast2obj_stmt);
         if (!value) goto failed;
-        if (_PyObject_SetAttrId(result, &PyId_orelse, value) == -1)
+        if (_PyObject_SetAttrId(result, &PyId_then, value) == -1)
             goto failed;
         Py_DECREF(value);
         break;
@@ -4558,7 +4559,7 @@ obj2ast_stmt(PyObject* obj, stmt_ty* out, PyArena* arena)
     if (isinstance) {
         expr_ty test;
         asdl_seq* body;
-        asdl_seq* orelse;
+        asdl_seq* then;
 
         if (_PyObject_HasAttrId(obj, &PyId_test)) {
             int res;
@@ -4595,31 +4596,31 @@ obj2ast_stmt(PyObject* obj, stmt_ty* out, PyArena* arena)
             PyErr_SetString(PyExc_TypeError, "required field \"body\" missing from Unless");
             return 1;
         }
-        if (_PyObject_HasAttrId(obj, &PyId_orelse)) {
+        if (_PyObject_HasAttrId(obj, &PyId_then)) {
             int res;
             Py_ssize_t len;
             Py_ssize_t i;
-            tmp = _PyObject_GetAttrId(obj, &PyId_orelse);
+            tmp = _PyObject_GetAttrId(obj, &PyId_then);
             if (tmp == NULL) goto failed;
             if (!PyList_Check(tmp)) {
-                PyErr_Format(PyExc_TypeError, "Unless field \"orelse\" must be a list, not a %.200s", tmp->ob_type->tp_name);
+                PyErr_Format(PyExc_TypeError, "Unless field \"then\" must be a list, not a %.200s", tmp->ob_type->tp_name);
                 goto failed;
             }
             len = PyList_GET_SIZE(tmp);
-            orelse = _Py_asdl_seq_new(len, arena);
-            if (orelse == NULL) goto failed;
+            then = _Py_asdl_seq_new(len, arena);
+            if (then == NULL) goto failed;
             for (i = 0; i < len; i++) {
                 stmt_ty value;
                 res = obj2ast_stmt(PyList_GET_ITEM(tmp, i), &value, arena);
                 if (res != 0) goto failed;
-                asdl_seq_SET(orelse, i, value);
+                asdl_seq_SET(then, i, value);
             }
             Py_CLEAR(tmp);
         } else {
-            PyErr_SetString(PyExc_TypeError, "required field \"orelse\" missing from Unless");
+            PyErr_SetString(PyExc_TypeError, "required field \"then\" missing from Unless");
             return 1;
         }
-        *out = Unless(test, body, orelse, lineno, col_offset, arena);
+        *out = Unless(test, body, then, lineno, col_offset, arena);
         if (*out == NULL) goto failed;
         return 0;
     }
