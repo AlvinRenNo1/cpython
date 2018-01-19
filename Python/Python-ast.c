@@ -110,6 +110,12 @@ static char *If_fields[]={
     "body",
     "orelse",
 };
+static PyTypeObject *Unless_type;
+static char *Unless_fields[]={
+    "test",
+    "body",
+    "orelse",
+};
 static PyTypeObject *With_type;
 _Py_IDENTIFIER(items);
 static char *With_fields[]={
@@ -835,6 +841,8 @@ static int init_types(void)
     if (!Until_type) return 0;
     If_type = make_type("If", stmt_type, If_fields, 3);
     if (!If_type) return 0;
+    Unless_type = make_type("Unless", stmt_type, Unless_fields, 3);
+    if (!Unless_type) return 0;
     With_type = make_type("With", stmt_type, With_fields, 2);
     if (!With_type) return 0;
     Raise_type = make_type("Raise", stmt_type, Raise_fields, 2);
@@ -1406,6 +1414,28 @@ If(expr_ty test, asdl_seq * body, asdl_seq * orelse, int lineno, int
     p->v.If.test = test;
     p->v.If.body = body;
     p->v.If.orelse = orelse;
+    p->lineno = lineno;
+    p->col_offset = col_offset;
+    return p;
+}
+
+stmt_ty
+Unless(expr_ty test, asdl_seq * body, asdl_seq * orelse, int lineno, int
+       col_offset, PyArena *arena)
+{
+    stmt_ty p;
+    if (!test) {
+        PyErr_SetString(PyExc_ValueError,
+                        "field test is required for Unless");
+        return NULL;
+    }
+    p = (stmt_ty)PyArena_Malloc(arena, sizeof(*p));
+    if (!p)
+        return NULL;
+    p->kind = Unless_kind;
+    p->v.Unless.test = test;
+    p->v.Unless.body = body;
+    p->v.Unless.orelse = orelse;
     p->lineno = lineno;
     p->col_offset = col_offset;
     return p;
@@ -2615,6 +2645,25 @@ ast2obj_stmt(void* _o)
             goto failed;
         Py_DECREF(value);
         value = ast2obj_list(o->v.If.orelse, ast2obj_stmt);
+        if (!value) goto failed;
+        if (_PyObject_SetAttrId(result, &PyId_orelse, value) == -1)
+            goto failed;
+        Py_DECREF(value);
+        break;
+    case Unless_kind:
+        result = PyType_GenericNew(Unless_type, NULL, NULL);
+        if (!result) goto failed;
+        value = ast2obj_expr(o->v.Unless.test);
+        if (!value) goto failed;
+        if (_PyObject_SetAttrId(result, &PyId_test, value) == -1)
+            goto failed;
+        Py_DECREF(value);
+        value = ast2obj_list(o->v.Unless.body, ast2obj_stmt);
+        if (!value) goto failed;
+        if (_PyObject_SetAttrId(result, &PyId_body, value) == -1)
+            goto failed;
+        Py_DECREF(value);
+        value = ast2obj_list(o->v.Unless.orelse, ast2obj_stmt);
         if (!value) goto failed;
         if (_PyObject_SetAttrId(result, &PyId_orelse, value) == -1)
             goto failed;
@@ -4499,6 +4548,78 @@ obj2ast_stmt(PyObject* obj, stmt_ty* out, PyArena* arena)
             return 1;
         }
         *out = If(test, body, orelse, lineno, col_offset, arena);
+        if (*out == NULL) goto failed;
+        return 0;
+    }
+    isinstance = PyObject_IsInstance(obj, (PyObject*)Unless_type);
+    if (isinstance == -1) {
+        return 1;
+    }
+    if (isinstance) {
+        expr_ty test;
+        asdl_seq* body;
+        asdl_seq* orelse;
+
+        if (_PyObject_HasAttrId(obj, &PyId_test)) {
+            int res;
+            tmp = _PyObject_GetAttrId(obj, &PyId_test);
+            if (tmp == NULL) goto failed;
+            res = obj2ast_expr(tmp, &test, arena);
+            if (res != 0) goto failed;
+            Py_CLEAR(tmp);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "required field \"test\" missing from Unless");
+            return 1;
+        }
+        if (_PyObject_HasAttrId(obj, &PyId_body)) {
+            int res;
+            Py_ssize_t len;
+            Py_ssize_t i;
+            tmp = _PyObject_GetAttrId(obj, &PyId_body);
+            if (tmp == NULL) goto failed;
+            if (!PyList_Check(tmp)) {
+                PyErr_Format(PyExc_TypeError, "Unless field \"body\" must be a list, not a %.200s", tmp->ob_type->tp_name);
+                goto failed;
+            }
+            len = PyList_GET_SIZE(tmp);
+            body = _Py_asdl_seq_new(len, arena);
+            if (body == NULL) goto failed;
+            for (i = 0; i < len; i++) {
+                stmt_ty value;
+                res = obj2ast_stmt(PyList_GET_ITEM(tmp, i), &value, arena);
+                if (res != 0) goto failed;
+                asdl_seq_SET(body, i, value);
+            }
+            Py_CLEAR(tmp);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "required field \"body\" missing from Unless");
+            return 1;
+        }
+        if (_PyObject_HasAttrId(obj, &PyId_orelse)) {
+            int res;
+            Py_ssize_t len;
+            Py_ssize_t i;
+            tmp = _PyObject_GetAttrId(obj, &PyId_orelse);
+            if (tmp == NULL) goto failed;
+            if (!PyList_Check(tmp)) {
+                PyErr_Format(PyExc_TypeError, "Unless field \"orelse\" must be a list, not a %.200s", tmp->ob_type->tp_name);
+                goto failed;
+            }
+            len = PyList_GET_SIZE(tmp);
+            orelse = _Py_asdl_seq_new(len, arena);
+            if (orelse == NULL) goto failed;
+            for (i = 0; i < len; i++) {
+                stmt_ty value;
+                res = obj2ast_stmt(PyList_GET_ITEM(tmp, i), &value, arena);
+                if (res != 0) goto failed;
+                asdl_seq_SET(orelse, i, value);
+            }
+            Py_CLEAR(tmp);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "required field \"orelse\" missing from Unless");
+            return 1;
+        }
+        *out = Unless(test, body, orelse, lineno, col_offset, arena);
         if (*out == NULL) goto failed;
         return 0;
     }
@@ -6984,6 +7105,8 @@ PyInit__ast(void)
     if (PyDict_SetItemString(d, "Until", (PyObject*)Until_type) < 0) return
         NULL;
     if (PyDict_SetItemString(d, "If", (PyObject*)If_type) < 0) return NULL;
+    if (PyDict_SetItemString(d, "Unless", (PyObject*)Unless_type) < 0) return
+        NULL;
     if (PyDict_SetItemString(d, "With", (PyObject*)With_type) < 0) return NULL;
     if (PyDict_SetItemString(d, "Raise", (PyObject*)Raise_type) < 0) return
         NULL;

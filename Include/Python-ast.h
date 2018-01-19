@@ -65,10 +65,11 @@ struct _mod {
 
 enum _stmt_kind {FunctionDef_kind=1, ClassDef_kind=2, Return_kind=3,
                   Delete_kind=4, Assign_kind=5, AugAssign_kind=6, For_kind=7,
-                  While_kind=8, Until_kind=9, If_kind=10, With_kind=11,
-                  Raise_kind=12, Try_kind=13, Assert_kind=14, Import_kind=15,
-                  ImportFrom_kind=16, Global_kind=17, Nonlocal_kind=18,
-                  Expr_kind=19, Pass_kind=20, Break_kind=21, Continue_kind=22};
+                  While_kind=8, Until_kind=9, If_kind=10, Unless_kind=11,
+                  With_kind=12, Raise_kind=13, Try_kind=14, Assert_kind=15,
+                  Import_kind=16, ImportFrom_kind=17, Global_kind=18,
+                  Nonlocal_kind=19, Expr_kind=20, Pass_kind=21, Break_kind=22,
+                  Continue_kind=23};
 struct _stmt {
     enum _stmt_kind kind;
     union {
@@ -133,6 +134,12 @@ struct _stmt {
             asdl_seq *body;
             asdl_seq *orelse;
         } If;
+        
+        struct {
+            expr_ty test;
+            asdl_seq *body;
+            asdl_seq *orelse;
+        } Unless;
         
         struct {
             asdl_seq *items;
@@ -440,6 +447,9 @@ stmt_ty _Py_Until(expr_ty test, asdl_seq * body, asdl_seq * orelse, int lineno,
 #define If(a0, a1, a2, a3, a4, a5) _Py_If(a0, a1, a2, a3, a4, a5)
 stmt_ty _Py_If(expr_ty test, asdl_seq * body, asdl_seq * orelse, int lineno,
                int col_offset, PyArena *arena);
+#define Unless(a0, a1, a2, a3, a4, a5) _Py_Unless(a0, a1, a2, a3, a4, a5)
+stmt_ty _Py_Unless(expr_ty test, asdl_seq * body, asdl_seq * orelse, int
+                   lineno, int col_offset, PyArena *arena);
 #define With(a0, a1, a2, a3, a4) _Py_With(a0, a1, a2, a3, a4)
 stmt_ty _Py_With(asdl_seq * items, asdl_seq * body, int lineno, int col_offset,
                  PyArena *arena);

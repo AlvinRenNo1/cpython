@@ -1960,6 +1960,46 @@ compiler_if(struct compiler *c, stmt_ty s)
 }
 
 static int
+compiler_unless(struct compiler *c, stmt_ty s)
+{
+    basicblock *end, *next;
+    int constant;
+    assert(s->kind == Unless_kind);
+    end = compiler_new_block(c);
+    if (end == NULL)
+        return 0;
+
+    constant = expr_constant(c, s->v.Unless.test);
+    /* constant = 0: "if 0"
+     * constant = 1: "if 1", "if 2", ...
+     * constant = -1: rest */
+    if (constant == 0) {
+        if (s->v.Unless.orelse)
+            VISIT_SEQ(c, stmt, s->v.Unless.orelse);
+    } else if (constant == 1) {
+        VISIT_SEQ(c, stmt, s->v.Unless.body);
+    } else {
+        if (s->v.Unless.orelse) {
+            next = compiler_new_block(c);
+            if (next == NULL)
+                return 0;
+        }
+        else
+            next = end;
+        VISIT(c, expr, s->v.Unless.test);
+        ADDOP_JABS(c, POP_JUMP_IF_TRUE, next);
+        VISIT_SEQ(c, stmt, s->v.Unless.body);
+        ADDOP_JREL(c, JUMP_FORWARD, end);
+        if (s->v.Unless.orelse) {
+            compiler_use_next_block(c, next);
+            VISIT_SEQ(c, stmt, s->v.Unless.orelse);
+        }
+    }
+    compiler_use_next_block(c, end);
+    return 1;
+}
+
+static int
 compiler_for(struct compiler *c, stmt_ty s)
 {
     basicblock *start, *cleanup, *end;
@@ -2604,6 +2644,8 @@ compiler_visit_stmt(struct compiler *c, stmt_ty s)
         return compiler_until(c, s);
     case If_kind:
         return compiler_if(c, s);
+    case Unless_kind:
+        return compiler_unless(c, s);
     case Raise_kind:
         n = 0;
         if (s->v.Raise.exc) {

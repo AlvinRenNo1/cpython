@@ -3247,6 +3247,55 @@ ast_for_if_stmt(struct compiling *c, const node *n)
 }
 
 static stmt_ty
+ast_for_unless_stmt(struct compiling *c, const node *n)
+{
+    /* if_stmt: 'if' test ':' suite ('elif' test ':' suite)*
+       ['else' ':' suite]
+    */
+    char *s;
+
+    REQ(n, unless_stmt);
+
+    if (NCH(n) == 4) {
+        expr_ty expression;
+        asdl_seq *suite_seq;
+
+        expression = ast_for_expr(c, CHILD(n, 1));
+        if (!expression)
+            return NULL;
+        suite_seq = ast_for_suite(c, CHILD(n, 3));
+        if (!suite_seq)
+            return NULL;
+
+        return Unless(expression, suite_seq, NULL, LINENO(n), n->n_col_offset,
+                  c->c_arena);
+    }
+
+    s = STR(CHILD(n, 4));
+    if (s[0] == 't' && s[1] == 'h' && s[2] == 'e' && s[3] == 'n') {
+        expr_ty expression;
+        asdl_seq *seq1, *seq2;
+
+        expression = ast_for_expr(c, CHILD(n, 1));
+        if (!expression)
+            return NULL;
+        seq1 = ast_for_suite(c, CHILD(n, 3));
+        if (!seq1)
+            return NULL;
+        seq2 = ast_for_suite(c, CHILD(n, 6));
+        if (!seq2)
+            return NULL;
+
+        return Unless(expression, seq1, seq2, LINENO(n), n->n_col_offset,
+                  c->c_arena);
+    }
+
+    PyErr_Format(PyExc_SystemError,
+                 "unexpected token in 'unless' statement: %s", s);
+    return NULL;
+}
+
+static stmt_ty
 ast_for_while_stmt(struct compiling *c, const node *n)
 {
     /* until_stmt: 'until' test ':' suite ['else' ':' suite] */
@@ -3648,6 +3697,8 @@ ast_for_stmt(struct compiling *c, const node *n)
         switch (TYPE(ch)) {
             case if_stmt:
                 return ast_for_if_stmt(c, ch);
+            case unless_stmt:
+                return ast_for_unless_stmt(c, ch);
             case while_stmt:
                 return ast_for_while_stmt(c, ch);
             case until_stmt:
