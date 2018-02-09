@@ -3298,7 +3298,7 @@ ast_for_unless_stmt(struct compiling *c, const node *n)
 static stmt_ty
 ast_for_while_stmt(struct compiling *c, const node *n)
 {
-    /* until_stmt: 'until' test ':' suite ['else' ':' suite] */
+    /* while_stmt: 'while' test ':' suite ['else' ':' suite] */
     REQ(n, while_stmt);
 
     if (NCH(n) == 4) {
@@ -3339,7 +3339,7 @@ ast_for_while_stmt(struct compiling *c, const node *n)
 static stmt_ty
 ast_for_until_stmt(struct compiling *c, const node *n)
 {
-    /* while_stmt: 'while' test ':' suite ['else' ':' suite] */
+    /* until_stmt: 'until' test ':' suite ['else' ':' suite] */
     REQ(n, until_stmt);
 
     if (NCH(n) == 4) {
